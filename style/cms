@@ -1,6 +1,6 @@
 PadRatio    3
 TopWSRatio  15  
-RebinLimit   999.5
+RebinLimit  999.5
 DivideBins  1
 BinLimit   9
 

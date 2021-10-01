@@ -103,6 +103,7 @@ HistMinimumZero
 HistTopMargin
 
 IsReading
+DivideBins 1
 
 PadBorderMode
 PadBorderSize
