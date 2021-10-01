@@ -3,15 +3,21 @@
 using namespace std;
 
 Normer::Normer() {
-  
+  // Added by Brenda FE, Tue Aug 6th, 2019, 1:27PM
+  TH1::SetDefaultSumw2(true);
 }
 
 Normer::Normer(vector<string> values) {
+  // Added by Brenda FE, Tue Aug 6th, 2019
+  TH1::SetDefaultSumw2(true);
   setValues(values);
   output = values[1];
   if(values.size() == 2) {
      isData = true;
      type = "data";
+  } else if(values.size() == 4){ 
+    isDataDriven = true;
+    type = values[3];
   } else if(values.size() >= 5) type = values[4];
 
 }
@@ -20,6 +26,8 @@ Normer::Normer(vector<string> values) {
 Normer::Normer(const Normer& other) :
   output(other.output), type(other.type), lumi(other.lumi), use(other.use)
 {
+  // Added by Brenda FE, Tue Aug 6th, 2019, 1:27PM
+  TH1::SetDefaultSumw2(true);
   input = other.input;
   skim = other.skim;
   xsec = other.xsec;
@@ -68,10 +76,12 @@ void Normer::setValues(vector<string> values) {
   if(values.size() == 2) {
     xsec.push_back(1.0);
     skim.push_back(1.0);
-  } else {
-     xsec.push_back(stod(values[2]));
-     skim.push_back(stod(values[3]));
-
+  } else if(values.size() == 4){
+    xsec.push_back(1.0);
+    skim.push_back(stod(values[2]));
+  } else{
+    xsec.push_back(stod(values[2]));
+    skim.push_back(stod(values[3]));
   }
 }
 
@@ -122,10 +132,27 @@ void Normer::print() {
 }
 
 double Normer::getBayesError(double pass, double full) {
-  if(pass > full) return 0;
+  // BrendaFE
+  /*
+  cout << "Normer::getBayesError at Normalizer.cc " << endl;
+  cout << "pass = " << pass << endl;
+  cout << "full = " << full << endl;
+  if (pass > full) cout << "there are more events that pass than available, return 0" << endl;
+  cout << "-----------------------" << endl;
+  */
+  if(pass > full) return 0;   // ORIGINAL
+  //if(pass > full) pass = full;
   double effer = pass/full;
+  //cout << "effer = " << effer << endl;
   double effer_err = sqrt(effer*(1-effer)/full);
+  /*
+  cout << "effer_err = " << effer_err << endl;
+  cout << "effer + effer_err = " << effer + effer_err << endl;
+  cout << "effer - effer_err = " << effer - effer_err << endl;
+  cout << "effer_err*full = " << effer_err*full << endl;
+  */
   if( effer + effer_err < 1 && effer - effer_err > 0) {
+    //cout << "first method " << endl;
     return effer_err*full;
   } 
   TH1D* first = new TH1D("first", "first", 1, 0, 1);
@@ -134,12 +161,20 @@ double Normer::getBayesError(double pass, double full) {
   second->SetBinContent(1, full);
   TGraphAsymmErrors* eff = new TGraphAsymmErrors(first, second, "b(1,1) mode");
   effer_err = eff->GetErrorYhigh(0);
+  /*
+  cout << "effer_err (TGraphAsymmErrors) = " << effer_err << endl;
+  cout << "effer + effer_err = " << effer + effer_err << endl;
+  cout << "effer - effer_err = " << effer - effer_err << endl;
+  */
   if( effer + effer_err < 1 && effer - effer_err > 0) {
+    //cout << "second method " << endl;
     return eff->GetErrorYhigh(0)*full;
   } else {
+    //cout << "third method " << endl;
     return pass;
   }
   return 0;
+  //cout << "The End." << endl;
 }
 
 
@@ -166,8 +201,6 @@ void Normer::MergeRootfile( TDirectory *target) {
 
   if(events) {
     TH1D* efficiency=new TH1D("eff", "eff", 1, 0, 1);
-    // target->cd();
-    // efficiency->Write();
 
     first_source->cd( path );
     int nplot = 0;
@@ -196,23 +229,27 @@ void Normer::MergeRootfile( TDirectory *target) {
     TObject *obj = key->ReadObj();
     if ( obj->IsA()->InheritsFrom( TH1::Class() ) ) {
       TH1 *h1 = (TH1*)obj;
-      h1->Sumw2();
+      // Brenda: Fri Jun 14th, 3:24 pm - comment the line below
+      //h1->Sumw2();
 
       int spot = 0;
-      double scale1 = (isData || xsec.at(spot) < 0) ? 1.0 : normFactor.at(spot) * xsec.at(spot)* lumi* skim.at(spot);
+      double scale1 = (isData || xsec.at(spot) < 0) ? 1.0 : normFactor.at(spot) * xsec.at(spot)* lumi * skim.at(spot);
+      if(isDataDriven){ 
+        // std::cout << "Found a data-driven background sample" << std::endl;
+        h1->Sumw2();
+        scale1 = skim.at(spot); // Since it is data-driven, there is no xsec nor luminosity to normalize to, so we factor them out.
+      }
+
       scale1 *= SF.at(spot);
-
-
-
 
       if(strcmp(h1->GetTitle(),"Events") == 0) {
       	h1->SetBinError(2,getBayesError(h1->GetBinContent(2), h1->GetBinContent(1)));
       } else {
-	for(int i = 1; i <= h1->GetXaxis()->GetNbins(); i++) {
-	  if(h1->GetBinError(i) != h1->GetBinError(i) || h1->GetBinError(i) > h1->GetBinContent(i)) {
-	    h1->SetBinError(i, abs(h1->GetBinContent(i)));
-	  }
-	}
+      	for(int i = 1; i <= h1->GetXaxis()->GetNbins(); i++) {
+      	  if(h1->GetBinError(i) != h1->GetBinError(i) || h1->GetBinError(i) > h1->GetBinContent(i)) {
+      	    h1->SetBinError(i, abs(h1->GetBinContent(i)));
+      	  }
+      	}
       }
 	
       if(!isData) h1->Scale(scale1);
@@ -220,32 +257,38 @@ void Normer::MergeRootfile( TDirectory *target) {
       TFile *nextsource = (TFile*)sourcelist->After( first_source );
       
       while ( nextsource ) {
-	spot++;
-	nextsource->cd( path );
-	TKey *key2 = (TKey*)gDirectory->GetListOfKeys()->FindObject(h1->GetName());
-	if (key2) {
-	  TH1 *h2 = (TH1*)key2->ReadObj();
+      	spot++;
+      	nextsource->cd( path );
+      	TKey *key2 = (TKey*)gDirectory->GetListOfKeys()->FindObject(h1->GetName());
+      	if (key2) {
+      	  TH1 *h2 = (TH1*)key2->ReadObj();
+      	  // Brenda: Fri Jun 14th, 3:24 pm
+      	  //h2->Sumw2();
 
-	  h2->Sumw2();
-	  // }
-	  double scale = (isData || xsec.at(spot) < 0) ? 1.0 : normFactor.at(spot) * xsec.at(spot)* lumi* skim.at(spot);
-	  scale *= SF.at(spot);
+      	  double scale = (isData || xsec.at(spot) < 0) ? 1.0 : normFactor.at(spot) * xsec.at(spot)* lumi* skim.at(spot);
+          if(isDataDriven){ 
+            // std::cout << "Found a data-driven background sample" << std::endl;
+            h2->Sumw2();
+            scale = skim.at(spot);
+          }
 
-	  if(strcmp(h2->GetTitle(),"Events") == 0) {
-	    h2->SetBinError(2,getBayesError(h2->GetBinContent(2), h2->GetBinContent(1)));
-	  } else {
-	    for(int i = 1; i <= h2->GetXaxis()->GetNbins(); i++) {
-	      if(h2->GetBinError(i) != h2->GetBinError(i) || h2->GetBinError(i) > h2->GetBinContent(i)) {
-		h2->SetBinError(i, abs(h2->GetBinContent(i)));
-	      }
-	    }
-	  }
+      	  scale *= SF.at(spot);
 
-	  h1->Add( h2, scale);
-	  delete h2;
-	  
-	}
-	nextsource = (TFile*)sourcelist->After( nextsource );
+      	  if(strcmp(h2->GetTitle(),"Events") == 0) {
+      	    h2->SetBinError(2,getBayesError(h2->GetBinContent(2), h2->GetBinContent(1)));
+      	  } else {
+      	    for(int i = 1; i <= h2->GetXaxis()->GetNbins(); i++) {
+      	      if(h2->GetBinError(i) != h2->GetBinError(i) || h2->GetBinError(i) > h2->GetBinContent(i)) {
+      		       h2->SetBinError(i, abs(h2->GetBinContent(i)));
+      	      }
+      	    }
+      	  }
+
+      	  h1->Add( h2, scale);
+      	  delete h2;
+      	  
+      	}
+      	nextsource = (TFile*)sourcelist->After( nextsource );
       }
       ////////////////////////////////////////////////////////////
       ////  To gain back Poisson error, uncomment this line /////

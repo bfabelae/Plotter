@@ -58,12 +58,13 @@ class Normer {
   void setUse() {if(use == 2) use = 1;}
   vector<string> input;
   vector<double> skim, xsec, SF;
-  string output, type="";
+  string output, type="", sampletype="";
   double lumi;
 
   TList* FileList;
   vector<double> normFactor;
   bool isData=false;
+  bool isDataDriven=false;
   int use=3;
 
   

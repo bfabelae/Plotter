@@ -86,7 +86,7 @@ int main(int argc, char* argv[]) {
 
   Style stylez("style/" + stylename);
   fullPlot.setStyle(stylez);
-
+  // cout << "I can get here..." << endl;
   /// Main loop of function
   fullPlot.CreateStack(final, logfile);
 

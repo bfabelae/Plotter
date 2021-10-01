@@ -69,8 +69,10 @@ void Plotter::CreateStack( TDirectory *target, Logfile& logfile) {
   //// Loop to write cutflow to logfile
   TH1* events;
   current_sourcedir->GetObject("Events", events);
-
+  //cout << "current_sourcedir->GetName() = " << current_sourcedir->GetName() << endl;  
+ 
   if(events) {
+    //cout << "Si hay eventos... " << endl;
     vector<string> logEff;
     string totalval = "";
     logEff.push_back(current_sourcedir->GetName());
@@ -78,13 +80,19 @@ void Plotter::CreateStack( TDirectory *target, Logfile& logfile) {
     for(int i=0; i < 3; i++) {
       TFile* nextsource = (TFile*)FileList[i]->First();
       while ( nextsource ) {
-	nextsource->cd(path);
-	gDirectory->GetObject("Events", events);
-	totalval = to_string_with_precision(events->GetBinContent(2), 1);
-	if(i != 0) totalval += " $\\pm$ " + to_string_with_precision(events->GetBinError(2), 1);
-	logEff.push_back(totalval);
-	nextsource = (TFile*)FileList[i]->After( nextsource );
+      	nextsource->cd(path);
+      	gDirectory->GetObject("Events", events);
+      	totalval = to_string_with_precision(events->GetBinContent(2), 3); // change precision for more decimal places
+        // Brenda FE 08/09/2019
+        //cout << " --------------- Plotter, process of writing the log file -------------- " << endl;
+        //cout << "totalval (number of events) = " <<  to_string_with_precision(events->GetBinContent(2), 1) << endl;
+        //cout << "i = " << i << endl;
+        //cout << "to_string_with_precision(events->GetBinError(2), 1) = " << to_string_with_precision(events->GetBinError(2), 1) << endl;
+      	if(i != 0) totalval += " $\\pm$ " + to_string_with_precision(events->GetBinError(2), 3);
+      	logEff.push_back(totalval);
+      	nextsource = (TFile*)FileList[i]->After( nextsource );
       }
+//      cout << "Events = " << events->GetBinContent(2) << endl; 
     }
     logfile.addLine(logEff);
     delete events;
@@ -121,7 +129,7 @@ void Plotter::CreateStack( TDirectory *target, Logfile& logfile) {
       //// annoying configuration stuff.  Maybe later
 
       int nfile = 0;
-
+ 
 
       for(int i = 0; i < 3; i++) {
 	TFile* nextfile = (TFile*)FileList[i]->First();
@@ -325,7 +333,9 @@ void Plotter::CreateStack( TDirectory *target, Logfile& logfile) {
       datahist->Draw("e1same");
 
     TPaveText *pt = new TPaveText(0.80,0.941,0.95,1.0,"NBNDC");
-    pt->AddText("35.9 fb^{-1} (13 TeV)");
+    pt->AddText("35.92 fb^{-1} (13 TeV)");
+    // pt->AddText("41.53 fb^{-1} (13 TeV)");
+    // pt->AddText("59.74 fb^{-1} (13 TeV)");
     pt->SetTextFont(42);
     pt->SetTextAlign(32);
     pt->SetFillStyle(0);
@@ -339,8 +349,10 @@ void Plotter::CreateStack( TDirectory *target, Logfile& logfile) {
     pt2->SetBorderSize(0);
     pt2->Draw();
 
-    TPaveText *pt3 = new TPaveText(0.09,0.82,0.21,0.88,"NBNDC");
-    pt3->AddText("Preliminary");
+    //TPaveText *pt3 = new TPaveText(0.09,0.82,0.21,0.88,"NBNDC");
+    TPaveText *pt3 = new TPaveText(0.09,0.82,0.25,0.88,"NBNDC");
+    //pt3->AddText("Preliminary");
+    pt3->AddText("Work in progress");
     pt3->SetTextAlign(12);
     pt3->SetTextFont(52);
     pt3->SetFillStyle(0);
@@ -410,19 +422,20 @@ void Plotter::CreateStack( TDirectory *target, Logfile& logfile) {
       /// memory leaks basically don't matter.
       /// delete vs Delete() still up in the air.  delete doesn't delete objects in container
       /// while Delete() does, but this only is true sometimes.  idk
-      hsdraw->Delete();
-      delete datahist;
-      delete error;
-      delete sigHists;
-      delete legend;
-      delete errorstack;
+      // All deletes commented out by Brenda FE, Aug 7, 2020.
+      // hsdraw->Delete();
+      // delete datahist;
+      // delete error;
+      // delete sigHists;
+      // delete legend;
+      // delete errorstack;
 
-      delete[] binner;
-      if( !onlyTop ) {
-	delete errorratio;
-	delete PrevFitTMP;
-	signalBot->Delete();
-      }
+      // delete[] binner;
+      //if( !onlyTop ) {
+	//delete errorratio;
+	//delete PrevFitTMP;
+	//signalBot->Delete();
+      //}
 
     } else if ( obj->IsA()->InheritsFrom( TDirectory::Class() ) ) {
 
@@ -593,7 +606,7 @@ vector<double> Plotter::rebinner(const TH1* hist, double limit) {
 
   if(hist->GetEntries() == 0 || hist->Integral() <= 0) return bins;
 
-   for(int i = hist->GetXaxis()->GetNbins(); i > 0; i--) {
+  for(int i = hist->GetXaxis()->GetNbins(); i > 0; i--) {
     if(hist->GetBinContent(i) <= 0.0) continue;
     if(!foundfirst) {
       bins.push_back(hist->GetXaxis()->GetBinUpEdge(i));
@@ -965,24 +978,24 @@ void Plotter::getPresetBinning(string filename) {
     int bracNum = 0;
     for(auto it: line) {
       if(it == '[' || it == ']' || it == ',') {
-	if(current != "") {
-	  if(bracNum == 0) name = current;
-	  else if(bracNum > 0) tmpVals.push_back(current);
-	  current = "";
-	}
-	if(it == '[' && ++bracNum > 2) {
-	  cout << "Error: Current code only allows for 2 levels of brackets.  Review line:" << endl;
-	  cout << line << endl;
-	  exit(1);
-	} else if(it == ']') {
-	  if(--bracNum < 0 || (tmpVals.size() != 2 && tmpVals.size() != 0)) {
-	    cout << "Error: Closing Bracket without corresponding open bracket: Review line:" << endl;
-	    cout << line << endl;
-	    exit(1);
-	  }
-	  if(tmpVals.size() == 2) tmpPairs.push_back(make_pair(stoi(tmpVals.at(0)), stod(tmpVals.at(1))));
-	  tmpVals.clear();
-	}
+        if(current != "") {
+          if(bracNum == 0) name = current;
+          else if(bracNum > 0) tmpVals.push_back(current);
+          current = "";
+        }
+        if(it == '[' && ++bracNum > 2) {
+          cout << "Error: Current code only allows for 2 levels of brackets.  Review line:" << endl;
+          cout << line << endl;
+          exit(1);
+        } else if(it == ']') {
+          if(--bracNum < 0 || (tmpVals.size() != 2 && tmpVals.size() != 0)) {
+            cout << "Error: Closing Bracket without corresponding open bracket: Review line:" << endl;
+            cout << line << endl;
+            exit(1);
+          }
+          if(tmpVals.size() == 2) tmpPairs.push_back(make_pair(stoi(tmpVals.at(0)), stod(tmpVals.at(1))));
+          tmpVals.clear();
+        }
       } else if(it == ' ' || it == '\t') continue;
       else current.push_back(it);
     }
