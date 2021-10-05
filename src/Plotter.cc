@@ -19,7 +19,7 @@ string to_string_with_precision(const T a_value, const int n = 6);
 
 /// Main function.  Takes TDirectory with the file you are writing to.  Also takes in logfile
 //  Gets all of the graphs from files in the plotter class and puts them in one graph.
-void Plotter::CreateStack( TDirectory *target, Logfile& logfile) {
+void Plotter::CreateStack( TDirectory *target, Logfile& logfile, double lumival) {
 
   //// Sets up style here.  Does everytime, just in case.  Probably don't need
   gStyle = styler.getStyle();
@@ -332,8 +332,28 @@ void Plotter::CreateStack( TDirectory *target, Logfile& logfile) {
       hsdraw->Draw();
       datahist->Draw("e1same");
 
-    TPaveText *pt = new TPaveText(0.80,0.941,0.95,1.0,"NBNDC");
-    pt->AddText("35.92 fb^{-1} (13 TeV)");
+    TPaveText *pt = new TPaveText(0.75,0.931,0.95,1.0,"NBNDC");
+    static std::map<int, std::string> lumiyears = {
+       {35, "2016"},
+       {41, "2017"},
+       {59, "2018"},
+       {137, "Run II"},
+    };
+
+    // Convert the lumi from pb to fb
+    double lumivalinfb = lumival / 1000.0;
+    int lumi_int = static_cast<int>(lumivalinfb);
+    
+    std::ostringstream streamObj;
+    streamObj << std::fixed;
+    streamObj << std::setprecision(2);
+    streamObj << lumivalinfb;
+    // Convert this number to a string
+    std::string lumivaluestr = streamObj.str();
+    // Create the full string
+    std::string pttext = (lumivaluestr+" fb^{-1} ("+lumiyears[lumi_int]+", 13 TeV)").c_str();
+    pt->AddText(pttext.c_str());
+    // pt->AddText("35.92 fb^{-1} (13 TeV)");
     // pt->AddText("41.53 fb^{-1} (13 TeV)");
     // pt->AddText("59.74 fb^{-1} (13 TeV)");
     pt->SetTextFont(42);
@@ -442,7 +462,7 @@ void Plotter::CreateStack( TDirectory *target, Logfile& logfile) {
       target->cd();
       TDirectory *newdir = target->mkdir( obj->GetName(), obj->GetTitle() );
 
-      CreateStack( newdir, logfile );
+      CreateStack( newdir, logfile, lumival);
 
     } else if ( obj->IsA()->InheritsFrom( TH1::Class() ) ) {
 

@@ -70,7 +70,7 @@ using namespace std;
 
 class Plotter {
  public:
-  void CreateStack( TDirectory*, Logfile&); ///fix plot stuff
+  void CreateStack( TDirectory*, Logfile&, double); ///fix plot stuff
   void addFile(Normer&);
 
   int getSize();

@@ -9,7 +9,7 @@ using namespace std;
 
 ///// Read in config file that is used to find the files to normalize 
 /// and then put in the Plotter
-void read_info(string, map<string, Normer*>&);
+double read_info(string, map<string, Normer*>&);
 int getModTime(const char *path);
 bool process_dummy(string inConfig);
 
@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
   map<string, Normer*> plots;
   Plotter fullPlot;
   bool needToRenorm = false;
-
+  double lumivalue = 0.0;
   ///// Parse input variables to change options and read in config files
   for(int i = 1; i < argc; ++i) {
     if(argv[i][0] == '-') {
@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
       }
     } else {
       needToRenorm =  process_dummy(argv[i]);
-      read_info(argv[i], plots);
+      lumivalue = read_info(argv[i], plots);
     }
   }
 
@@ -88,7 +88,7 @@ int main(int argc, char* argv[]) {
   fullPlot.setStyle(stylez);
   // cout << "I can get here..." << endl;
   /// Main loop of function
-  fullPlot.CreateStack(final, logfile);
+  fullPlot.CreateStack(final, logfile, lumivalue);
 
   cout << "Finished making Stack Plot" << endl;
 
@@ -97,7 +97,7 @@ int main(int argc, char* argv[]) {
 }
 
 ///// Reads in config files and normalizes the files
-void read_info(string filename, map<string, Normer*>& plots) {
+double read_info(string filename, map<string, Normer*>& plots) {
   typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
   ifstream info_file(filename);
   boost::char_separator<char> sep(", \t");
@@ -133,6 +133,8 @@ void read_info(string filename, map<string, Normer*>& plots) {
   for(map<string, Normer*>::iterator it = plots.begin(); it != plots.end(); it++) {
     it->second->setLumi(lumi);
   }
+
+  return lumi;
 }
 
 bool process_dummy(string inConfig) {
