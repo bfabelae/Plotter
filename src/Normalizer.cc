@@ -167,14 +167,14 @@ double Normer::getBayesError(double pass, double full) {
   cout << "effer - effer_err = " << effer - effer_err << endl;
   */
   if( effer + effer_err < 1 && effer - effer_err > 0) {
-    //cout << "second method " << endl;
+    // cout << "second method " << endl;
     return eff->GetErrorYhigh(0)*full;
   } else {
-    //cout << "third method " << endl;
+    // cout << "third method " << endl;
     return pass;
   }
   return 0;
-  //cout << "The End." << endl;
+  // cout << "The End." << endl;
 }
 
 
@@ -182,10 +182,12 @@ double Normer::getBayesError(double pass, double full) {
 ///// Ripped hadd function.  Adds all the histograms together 
 /// while normalizing them
 void Normer::MergeRootfile( TDirectory *target) {
-
-  TList* sourcelist = FileList;
+  // cout << " ~~~~~~~~~~~ Normer::MergeRootfile ~~~~~~~~~~~~" << endl;
+  TList* sourcelist = FileList; 
   TString path( (char*)strstr( target->GetPath(), ":" ) );
   path.Remove( 0, 2 );
+
+  // cout << "\t Path = " << path << endl;
 
   TFile *first_source = (TFile*)sourcelist->First();
   first_source->cd( path );
@@ -199,17 +201,23 @@ void Normer::MergeRootfile( TDirectory *target) {
   TH1D* events;
   current_sourcedir->GetObject("Events", events);
 
-  if(events) {
+  TH1D *initialevents = (TH1D*)first_source->Get("NRecoVertex/Events");
+  double totaleventsanalyzed = initialevents->GetBinContent(1);
+
+  if(events){
     TH1D* efficiency=new TH1D("eff", "eff", 1, 0, 1);
 
     first_source->cd( path );
+    events = (TH1D*)first_source->Get("NRecoVertex/Events");
     int nplot = 0;
     normFactor.at(nplot) = 1.0/events->GetBinContent(1);
+
     TFile *nextsource = (TFile*)sourcelist->After( first_source );
     while( nextsource) {
       nplot++;
       nextsource->cd(path);
-      gDirectory->GetObject("Events", events);
+      // gDirectory->GetObject("Events", events);
+      events = (TH1D*)nextsource->Get("NRecoVertex/Events");
       normFactor.at(nplot) = 1.0/events->GetBinContent(1);
       nextsource = (TFile*)sourcelist->After( nextsource );
     }
@@ -243,7 +251,8 @@ void Normer::MergeRootfile( TDirectory *target) {
       scale1 *= SF.at(spot);
 
       if(strcmp(h1->GetTitle(),"Events") == 0) {
-      	h1->SetBinError(2,getBayesError(h1->GetBinContent(2), h1->GetBinContent(1)));
+        // cout << "h1->GetBinContent(1) = " << h1->GetBinContent(1) << ", h1->GetBinContent(2) = " << h1->GetBinContent(2) << ", totaleventsanalyzed = " << totaleventsanalyzed << endl;
+      	h1->SetBinError(2,getBayesError(h1->GetBinContent(2), totaleventsanalyzed));
       } else {
       	for(int i = 1; i <= h1->GetXaxis()->GetNbins(); i++) {
       	  if(h1->GetBinError(i) != h1->GetBinError(i) || h1->GetBinError(i) > h1->GetBinContent(i)) {
@@ -255,8 +264,11 @@ void Normer::MergeRootfile( TDirectory *target) {
       if(!isData) h1->Scale(scale1);
 
       TFile *nextsource = (TFile*)sourcelist->After( first_source );
-      
+ 
       while ( nextsource ) {
+        initialevents = (TH1D*)nextsource->Get("NRecoVertex/Events");
+        totaleventsanalyzed = initialevents->GetBinContent(1);
+
       	spot++;
       	nextsource->cd( path );
       	TKey *key2 = (TKey*)gDirectory->GetListOfKeys()->FindObject(h1->GetName());
@@ -275,7 +287,8 @@ void Normer::MergeRootfile( TDirectory *target) {
       	  scale *= SF.at(spot);
 
       	  if(strcmp(h2->GetTitle(),"Events") == 0) {
-      	    h2->SetBinError(2,getBayesError(h2->GetBinContent(2), h2->GetBinContent(1)));
+            // cout << "h2->GetBinContent(1) = " << h2->GetBinContent(1) << ", h2->GetBinContent(2) = " << h2->GetBinContent(2) << ", totaleventsanalyzed = " << totaleventsanalyzed << endl;
+      	    h2->SetBinError(2,getBayesError(h2->GetBinContent(2), totaleventsanalyzed));
       	  } else {
       	    for(int i = 1; i <= h2->GetXaxis()->GetNbins(); i++) {
       	      if(h2->GetBinError(i) != h2->GetBinError(i) || h2->GetBinError(i) > h2->GetBinContent(i)) {

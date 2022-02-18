@@ -337,7 +337,7 @@ void Plotter::CreateStack( TDirectory *target, Logfile& logfile, double lumival)
        {35, "2016"},
        {41, "2017"},
        {59, "2018"},
-       {137, "Run II"},
+       {0, "Run II"},
     };
 
     // Convert the lumi from pb to fb
@@ -351,7 +351,12 @@ void Plotter::CreateStack( TDirectory *target, Logfile& logfile, double lumival)
     // Convert this number to a string
     std::string lumivaluestr = streamObj.str();
     // Create the full string
-    std::string pttext = (lumivaluestr+" fb^{-1} ("+lumiyears[lumi_int]+", 13 TeV)").c_str();
+    std::string pttext;
+    if (lumi_int < 1){
+       pttext = ("137  fb^{-1} ("+lumiyears[lumi_int]+", 13 TeV)").c_str();
+    } else {
+       pttext = (lumivaluestr+" fb^{-1} ("+lumiyears[lumi_int]+", 13 TeV)").c_str();
+    }
     pt->AddText(pttext.c_str());
     // pt->AddText("35.92 fb^{-1} (13 TeV)");
     // pt->AddText("41.53 fb^{-1} (13 TeV)");
